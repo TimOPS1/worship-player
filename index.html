@@ -69,6 +69,7 @@ button.on{background:var(--ac);color:var(--bg);border-color:var(--ac);font-weigh
   <label class="btn sm">Pad-Set importieren<input id="padfile" type="file" accept="audio/*,.wav,.mp3,.m4a" multiple hidden></label>
   <input id="setname" class="sm" placeholder="Set-Name (optional)" style="width:170px"><button id="delset" class="sm">Set löschen</button></div>
  <div class="row" id="tb" style="margin-top:8px"></div>
+ <div class="mut" id="ver" style="margin-top:6px">Version v15</div>
  <div class="mut" id="msg" style="margin-top:6px">Ablauf: Abschnitt oben antippen, dann ändern. Pad-Dateien werden später eingebunden (bis dahin Platzhalter-Klang).</div>
 </div>
 <div id="mkbar" class="panel row hide"><b>Section:</b><select id="msec"></select><span class="mut">Rechteck auf der Seite aufziehen</span><button id="mkd" class="on" style="margin-left:auto">Fertig</button></div>
@@ -251,16 +252,27 @@ $('#xp').onclick=()=>{st.xp=!st.xp;ui()};
 $('#co').onclick=()=>{const x=S();if(x.k0!=null)x.k=x.k0;x.capo=x.c0||0;if(st.pov==null)padSync(2);ui()};
 // ---- Pad-Set importieren / wählen / löschen ----
 $('#pset').onchange=e=>{st.setId=e.target.value||null;padSync(2);ui()};
+// Dateinamen: "G - WARM - …", "F# - …", "11_Key_of_G_Pads_Clouds", ersatzweise Nummer 1–12 (A=1 … G#=12)
+function parsePad(fn){const b=fn.replace(/\.[^.]+$/,'').trim();let m=b.match(/key[\s_\-]*of[\s_\-]*(.*)$/i);
+ if(m){const r=m[1].match(/^([A-G])(#|♯|b|♭|[\s_\-]?[Ss]harp|[\s_\-]?[Ff]lat)?(?![A-Za-z])/);
+  if(r){const a=r[2]||'',acc=/#|♯|[Ss]harp/.test(a)?'#':/b|♭|[Ff]lat/.test(a)?'b':'';
+   const rest=m[1].slice(r[0].length).replace(/[\s_\-]+/g,' ').replace(/\bpads?\b/ig,' ').replace(/\s+/g,' ').trim();
+   return{k:pc(r[1]+acc),nm:rest?rest[0].toUpperCase()+rest.slice(1):null}}}
+ m=b.match(/^([A-Ga-g])\s*([#b♯♭])?(?=[\s_.\-]|$)/);
+ if(m){const q=b.split('-').map(x=>x.trim())[1];return{k:pc(m[1].toUpperCase()+(m[2]||'')),nm:q?q[0].toUpperCase()+q.slice(1).toLowerCase():null}}
+ const n=b.match(/^(\d{1,2})[\s_\-]/);if(n&&+n[1]>=1&&+n[1]<=12)return{k:(+n[1]+8)%12,nm:null,num:1};return{k:null,nm:null}}
 $('#padfile').onchange=async e=>{const fl=[...e.target.files];e.target.value='';if(!fl.length)return;
  if(!db){$('#msg').textContent='Speicher nicht verfügbar – Import nicht möglich.';return}
- const it=fl.map(f=>{const m=f.name.trim().match(/^([A-Ga-g])\s*([#b♯♭])?(?=[\s_.\-]|$)/);return{f,k:m?pc(m[1].toUpperCase()+(m[2]||'')):null}}),ok=it.filter(x=>x.k!==null),bad=it.length-ok.length;
- if(!ok.length){$('#msg').textContent='Keine Tonart in den Dateinamen erkannt (erwartet z. B. „G - …“ oder „F# - …“).';return}
- const pt=ok.map(x=>x.f.name.replace(/\.[^.]+$/,'').split('-').map(y=>y.trim())[1]),g=pt.every(x=>x&&x===pt[0])?pt[0][0].toUpperCase()+pt[0].slice(1).toLowerCase():'Set '+(st.sets.length+1);
- const name=$('#setname').value.trim()||g,id='s'+Date.now();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
- let n=0;for(const x of ok){$('#msg').textContent=`Speichere ${++n}/${ok.length} …`;if(!await dbSet('pads',id+':'+x.k,x.f)){$('#msg').textContent=`Speichern fehlgeschlagen bei ${x.f.name} (Speicher voll?).`;for(const y of ok)await dbDel('pads',id+':'+y.k);return}}
- const keys=[...new Set(ok.map(x=>x.k))].sort((a,b)=>a-b);st.sets.push({id,name,keys});st.setId=id;$('#setname').value='';
- const miss=KN.map((k,i)=>keys.includes(i)?null:k).filter(Boolean);
- $('#msg').textContent=`Set „${name}“: ${keys.length} Tonarten gespeichert.`+(miss.length?` Es fehlen: ${miss.join(', ')}.`:'')+(bad?` ${bad} Datei(en) ohne erkennbare Tonart übersprungen.`:'');
+ const it=fl.map(f=>({f,...parsePad(f.name)})),ok=it.filter(x=>x.k!==null),bad=it.length-ok.length;
+ if(!ok.length){$('#msg').textContent='Keine Tonart in den Dateinamen erkannt (erwartet z. B. „G - …“, „F# - …“ oder „…Key_of_G…“).';return}
+ const gm=new Map();ok.forEach(x=>{const g=x.nm||'';if(!gm.has(g))gm.set(g,[]);gm.get(g).push(x)});
+ const typed=$('#setname').value.trim(),out=[];let n=0,gi=0;try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+ for(const [g,xs] of gm){const name=(gm.size===1&&typed)||g||('Set '+(st.sets.length+1)),ex=st.sets.find(z=>z.name===name),id=ex?ex.id:'s'+Date.now()+(gi++);
+  for(const x of xs){$('#msg').textContent=`Speichere ${++n}/${ok.length} …`;if(!await dbSet('pads',id+':'+x.k,x.f)){$('#msg').textContent=`Speichern fehlgeschlagen bei ${x.f.name} (Speicher voll?).`;if(!ex)for(const y of xs)await dbDel('pads',id+':'+y.k);return}}
+  const keys=[...new Set([...(ex?ex.keys:[]),...xs.map(x=>x.k)])].sort((a,b)=>a-b);if(ex)ex.keys=keys;else st.sets.push({id,name,keys});st.setId=id;
+  out.push(`„${name}“: ${keys.length} Tonarten`+(keys.length<12?` (es fehlen: ${KN.filter((k,i)=>!keys.includes(i)).join(', ')})`:''))}
+ $('#setname').value='';
+ $('#msg').textContent='Importiert – '+out.join(' · ')+'.'+(bad?` ${bad} Datei(en) ohne erkennbare Tonart übersprungen.`:'')+(ok.some(x=>x.num)?' Tonart aus der Dateinummer abgeleitet (A=1 … G♯=12) – bitte prüfen.':'');
  await saveNow();padSync(2);ui()};
 $('#delset').onclick=async()=>{const s=st.sets.find(x=>x.id===st.setId);if(!s){$('#msg').textContent='Kein Set ausgewählt.';return}
  if(!delArm){delArm=true;$('#delset').textContent='Wirklich?';setTimeout(()=>{delArm=false;$('#delset').textContent='Set löschen'},3000);return}
