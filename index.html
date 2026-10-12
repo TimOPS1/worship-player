@@ -45,13 +45,27 @@ button.on{background:var(--ac);color:var(--bg);border-color:var(--ac);font-weigh
 #ov .n{font:700 120px/1 Georgia,serif;color:var(--ac)}#ov .t{font:700 28px Georgia,serif}
 #pb{height:8px;background:var(--ln);border-radius:4px;margin-top:14px;overflow:hidden}#pb i{display:block;height:100%;background:var(--ac);width:0}
 #pb i.go{width:100%;transition:width 4s linear}
+.lp-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+#lp{position:fixed;left:8px;right:8px;top:calc(56px + env(safe-area-inset-top,0px));z-index:6;max-height:72vh;overflow:auto;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.lrow{display:flex;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--ln);cursor:pointer;min-height:50px}
+.lrow .lb{flex:none;width:46px;height:42px;display:grid;place-items:center;border-radius:11px;border:1px solid var(--ln);font-weight:700;font-size:20px}
+.lrow.in .lb{background:var(--ac);color:var(--bg);border-color:var(--ac)}.lrow .lu{flex:none;max-width:38%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#libbox{border-top:2px solid var(--ln);margin-top:10px;padding-top:4px}
+.lrow .ln{width:24px;text-align:right;color:var(--mut)}.lrow .lt{flex:1;font-weight:600}.lrow.cur .lt{color:var(--ac)}
+#note{flex:none;background:#fff3c4;color:#3b2f00;border-radius:10px;padding:6px 12px;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+#note.open{white-space:pre-wrap}
+#notes{width:100%;box-sizing:border-box;min-height:64px;padding:8px 10px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--ln);border-radius:12px;resize:vertical}
+#err{position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;z-index:15;background:#b91c1c;color:#fff;padding:10px 14px;font-weight:600;text-align:center}
+#toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;z-index:12;opacity:0;transition:opacity .2s;pointer-events:none;font-weight:600}
+#toast.show{opacity:.94}
 .hide{display:none!important}
 </style></head><body>
 <div id="nojs" style="position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:#14161a;color:#fff;padding:24px;text-align:center;font:22px/1.4 system-ui">In dieser Ansicht sind Skripte blockiert (z. B. Datei-Vorschau).<br>Bitte die Seite per Link im Safari öffnen.</div>
 <div id="app">
- <div class="top"><input id="ttl"><span class="mut" id="pos"></span><span class="val" id="key"></span><span class="val" id="bpm"></span><span class="mut">BPM</span><span class="mut" id="capo"></span>
+ <div class="top"><button id="list" class="sm" aria-label="Setlist">☰</button><input id="ttl"><span class="mut" id="pos"></span><span class="val" id="key"></span><span class="val" id="bpm"></span><span class="mut">BPM</span><span class="mut" id="capo"></span>
   <span class="dots" id="dots"></span><button id="edit" class="sm">⚙</button><button id="mode" class="sm">Probe</button></div>
  <div id="bar"></div>
+ <div id="note" class="hide"></div>
  <div id="stage"><div id="chart"></div><div id="ring"></div></div>
  <div class="ctl">
   <button id="sp">◀ Lied</button><button id="metro">Metronom</button>
@@ -60,18 +74,30 @@ button.on{background:var(--ac);color:var(--bg);border-color:var(--ac);font-weigh
 </div>
 <div id="sh" class="panel hide">
  <div class="row"><label class="btn">PDF importieren<input id="file" type="file" accept="application/pdf" hidden></label>
-  <button id="mkb">Sections korrigieren</button><button id="kM">Key −</button><button id="kP">Key +</button><button id="bM">BPM −</button><button id="bP">BPM +</button>
+  <button id="mkb">Sections korrigieren</button><button id="kM">Key −</button><button id="kP">Key +</button><button id="bM">BPM −</button><button id="bP">BPM +</button><button id="tap">Tap</button>
   <button id="zM">Zoom −</button><button id="zP">Zoom +</button><button id="fit">Passend</button><button id="inv">Chart dunkel</button><button id="foot">Fußzeile</button></div>
  <div class="row" style="margin-top:8px"><button id="cM" class="sm">Capo −</button><button id="cP" class="sm">Capo +</button><button id="xp" class="sm">Akkorde anpassen</button><button id="co" class="sm">Original</button><span class="mut" id="cv"></span></div>
  <div class="mut" id="cmap" style="margin-top:4px"></div>
  <div class="row" style="margin-top:8px"><span class="mut" id="kv"></span><span class="mut">Pad-Key:</span><select id="pks" class="sm"></select></div>
  <div class="row" style="margin-top:8px"><span class="mut">Pad-Klang:</span><select id="pset" class="sm"></select>
   <label class="btn sm">Pad-Set importieren<input id="padfile" type="file" accept="audio/*,.wav,.mp3,.m4a" multiple hidden></label>
-  <input id="setname" class="sm" placeholder="Set-Name (optional)" style="width:170px"><button id="delset" class="sm">Set löschen</button></div>
+  <input id="setname" class="sm" placeholder="Set-Name (optional)" style="width:170px"><button id="delset" class="sm">Set löschen</button><span class="mut">Pad aus blendet</span><select id="fo" class="sm"><option value="2">in 2 s</option><option value="4">in 4 s</option><option value="8">in 8 s</option><option value="12">in 12 s</option></select><span class="mut">aus</span></div>
  <div class="row" id="tb" style="margin-top:8px"></div>
- <div class="mut" id="msg" style="margin-top:6px">Ablauf: Abschnitt oben antippen, dann ändern. Pad-Dateien werden später eingebunden (bis dahin Platzhalter-Klang).</div>
+ <div style="margin-top:8px"><textarea id="notes" rows="2" placeholder="Notiz zu diesem Lied (erscheint über dem Chart) …"></textarea></div>
+ <div class="row" style="margin-top:8px"><button id="bkx" class="sm">Sicherung exportieren</button><label class="btn sm">Sicherung laden<input id="bki" type="file" accept=".json,application/json" hidden></label><button id="clean" class="sm">Lieder ohne Setlist löschen</button><span class="mut" id="stor"></span></div>
+ <div class="mut" style="margin-top:6px">Bluetooth-Pedal / Tastatur: → oder ↓ = nächstes Lied · ← oder ↑ = voriges Lied</div>
+ <div class="mut" id="ver" style="margin-top:6px">Version v17</div>
+ <div class="mut" id="msg" style="margin-top:6px">Ablauf: Abschnitt oben antippen, dann ändern.</div>
 </div>
 <div id="mkbar" class="panel row hide"><b>Section:</b><select id="msec"></select><span class="mut">Rechteck auf der Seite aufziehen</span><button id="mkd" class="on" style="margin-left:auto">Fertig</button></div>
+<div id="lp" class="panel hide">
+ <div class="lp-head"><b>Setlist</b><select id="lsel" class="sm" style="flex:1;min-width:160px"></select><button id="lnew" class="sm">+ Neue Setlist</button><button id="lcopy" class="sm">Kopieren</button><button id="lclose" class="sm on">Schließen</button></div>
+ <div class="lp-head" id="lnamerow"><span class="mut">Name</span><input id="lname" class="sm" style="flex:1;min-width:160px" aria-label="Name der Setlist"><button id="ldel" class="sm">Setlist löschen</button></div>
+ <div id="lsongs"></div>
+ <div id="libbox"><div class="lp-head"><b>Bibliothek</b><input id="lq" class="sm" placeholder="Lied suchen …" style="flex:1;min-width:140px" aria-label="Lied suchen"><span class="mut" id="lcount"></span></div>
+  <div class="mut" style="margin:-2px 0 4px">Antippen: + fügt das Lied am Ende der Setlist ein, ✓ nimmt es wieder heraus.</div><div id="lib"></div></div>
+</div>
+<div id="err" class="hide"></div><div id="toast"></div>
 <div id="ov"><div><div class="t" id="ot"></div><div class="n" id="on"></div><div id="pb"><i></i></div></div></div>
 <script src="pdf.min.js"></script>
 <script>
@@ -94,7 +120,8 @@ V2:[["G            D","Am Morgen früh bist du schon da"],["Em           C","du 
 B:[["Em    C","Alles neigt sich vor dir"],["G     D","Alles neigt sich vor dir"]],O:[["G    D    C","(ausklingen lassen)"]]};
 let uid=0;const mk=s=>({u:++uid,s});
 const mkSong=(t,k,b,pages,items)=>({t,k,b,pages,mn:0,mk:{},items:items||['I','V1','C','V2','C','B','C','O'].map(mk)});
-const st={songs:[mkSong('Demo-Lied 1',7,124),mkSong('Demo-Lied 2',2,72),mkSong('Demo-Lied 3',9,96)],si:0,ts:4,play:false,pad:false,pov:null,vol:.7,mode:'probe',edit:false,sel:0,ph:'idle',mkOn:false,pos:0,zoom:100,inv:false,foot:false,sets:[],setId:null,padMiss:false,xp:true};
+const DEMO=()=>[mkSong('Demo-Lied 1',7,124),mkSong('Demo-Lied 2',2,72),mkSong('Demo-Lied 3',9,96)];
+const st={songs:DEMO(),demo:true,lib:{},lists:[],cur:null,fo:8,lp:false,si:0,ts:4,play:false,pad:false,pov:null,vol:.7,mode:'probe',edit:false,sel:0,ph:'idle',mkOn:false,pos:0,zoom:100,inv:false,foot:false,sets:[],setId:null,padMiss:false,xp:true};
 const S=()=>st.songs[st.si],I=()=>S().items,pkEff=()=>st.pov==null?S().k:st.pov;
 st.pos=I()[0].u;
 $('#pks').innerHTML='<option value="a">Auto (Key des Liedes)</option>'+KN.map((k,i)=>`<option value="${i}">${k}</option>`).join('');
@@ -109,14 +136,14 @@ function dots(b){$('#dots').innerHTML=Array.from({length:st.ts},(_,k)=>`<i class
 // ---- Pad: Sample-Sets (gestreamt, 2 vorab entsperrte Audio-Elemente) oder Platzhalter-Synth ----
 const SIL=(()=>{const n=800,b=new Uint8Array(44+n),w=(o,t)=>[...t].forEach((c,i)=>b[o+i]=c.charCodeAt(0)),u=(o,v)=>{b[o]=v&255;b[o+1]=v>>8&255;b[o+2]=v>>16&255;b[o+3]=v>>24&255};
  w(0,'RIFF');u(4,36+n);w(8,'WAVEfmt ');u(16,16);b[20]=1;b[22]=1;u(24,8000);u(28,8000);b[32]=1;b[34]=8;w(36,'data');u(40,n);b.fill(128,44);return URL.createObjectURL(new Blob([b],{type:'audio/wav'}))})();
-let pool=null,pv=null,padTok=0,pend=null,tagc=0;
+let pool=null,pv=null,padTok=0,pend=null,tagc=0,lastSlot=null,fadeUntil=0;
 function initPool(){if(pool)return;pool=[0,1].map(()=>{const a=new Audio();a.loop=true;a.preload='auto';a.setAttribute('playsinline','');const g=ac.createGain();g.gain.value=0;ac.createMediaElementSource(a).connect(g);g.connect(pm);return{a,g,tag:0,url:null}});
  pool.forEach(x=>{x.a.src=SIL;const r=x.a.play();if(r&&r.catch)r.catch(()=>{})})}
 function synth(want,xf){const n=ac.currentTime,g=ac.createGain();g.gain.setValueAtTime(0,n);g.gain.linearRampToValueAtTime(.3,n+xf);g.connect(pm);const r=130.81*Math.pow(2,want/12);
  const os=[[1,'sine'],[1.5,'triangle'],[2,'sine'],[3,'sine']].map(([m,ty],j)=>{const o=ac.createOscillator();o.type=ty;o.frequency.value=r*m;o.detune.value=j*3;const og=ac.createGain();og.gain.value=j==3?.2:.6;o.connect(og).connect(g);o.start(n);return o});
  return{k:want,set:null,kill(x){const t=ac.currentTime;g.gain.cancelScheduledValues(t);g.gain.setValueAtTime(g.gain.value,t);g.gain.linearRampToValueAtTime(0,t+x);os.forEach(o=>o.stop(t+x+.1))}}}
 async function sampleVoice(k,xf,tok,slot){const blob=await dbGet('pads',st.setId+':'+k);if(!blob||tok!==padTok)return null;
- const p=pool[slot],tag=++tagc;p.tag=tag;p.g.gain.cancelScheduledValues(ac.currentTime);p.g.gain.value=0;if(p.url)URL.revokeObjectURL(p.url);p.url=URL.createObjectURL(blob);p.a.src=p.url;p.a.loop=true;
+ lastSlot=slot;const p=pool[slot],tag=++tagc;p.tag=tag;p.g.gain.cancelScheduledValues(ac.currentTime);p.g.gain.value=0;if(p.url)URL.revokeObjectURL(p.url);p.url=URL.createObjectURL(blob);p.a.src=p.url;p.a.loop=true;
  try{await p.a.play()}catch(e){return null}
  if(tok!==padTok){if(p.tag===tag)p.a.pause();return null}
  const n=ac.currentTime;p.g.gain.setValueAtTime(0,n);p.g.gain.linearRampToValueAtTime(1,n+xf);
@@ -125,23 +152,41 @@ function padSync(xf=2){if(!ac)return Promise.resolve();const want=st.pad?pkEff()
  if(pv&&pv.k===want&&pv.set===sid)return Promise.resolve();
  if(pend&&pend.k===want&&pend.set===sid)return pend.p;
  if(!pv&&want===null){pend=null;return Promise.resolve()}
- const tok=++padTok,old=pv,slot=old&&old.slot!=null?1-old.slot:0;pv=null;if(old)old.kill(xf);st.padMiss=false;pend=null;
+ const tok=++padTok,old=pv,slot=lastSlot==null?0:1-lastSlot;pv=null;if(old)old.kill(xf);st.padMiss=false;pend=null;
  if(want===null)return Promise.resolve();
  if(!sid){pv=synth(want,xf);return Promise.resolve()}
  const p=sampleVoice(want,xf,tok,slot).then(v=>{if(tok!==padTok){if(v)v.kill(.05);return}if(v)pv=v;else{st.padMiss=true;ui()}});
  pend={k:want,set:sid,p};return p}
 // ---- Speicher (IndexedDB): Zustand + Pad-Dateien ----
 let db=null,sv=null,delArm=false;
-const openDB=()=>new Promise(r=>{try{const q=indexedDB.open('wlp',1);q.onupgradeneeded=()=>{q.result.createObjectStore('kv');q.result.createObjectStore('pads')};q.onsuccess=()=>{db=q.result;r(db)};q.onerror=()=>r(null)}catch(e){r(null)}});
+const openDB=()=>new Promise(r=>{try{const q=indexedDB.open('wlp',2);q.onupgradeneeded=()=>{const d=q.result;['kv','pads','imgs'].forEach(n=>{if(!d.objectStoreNames.contains(n))d.createObjectStore(n)})};q.onsuccess=()=>{db=q.result;r(db)};q.onerror=()=>r(null)}catch(e){r(null)}});
 const dbGet=(s,k)=>new Promise(r=>{if(!db)return r(null);try{const q=db.transaction(s).objectStore(s).get(k);q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)}catch(e){r(null)}});
 const dbSet=(s,k,v)=>new Promise(r=>{if(!db)return r(false);try{const t=db.transaction(s,'readwrite');t.objectStore(s).put(v,k);t.oncomplete=()=>r(true);t.onerror=()=>r(false);t.onabort=()=>r(false)}catch(e){r(false)}});
 const dbDel=(s,k)=>new Promise(r=>{if(!db)return r(false);try{const t=db.transaction(s,'readwrite');t.objectStore(s).delete(k);t.oncomplete=()=>r(true);t.onerror=()=>r(false)}catch(e){r(false)}});
-const saveNow=()=>dbSet('kv','state',{songs:st.songs,si:st.si,vol:st.vol,setId:st.setId,sets:st.sets,foot:st.foot,inv:st.inv,xp:st.xp});
+// Zustand ohne Bilder; Bilder liegen einzeln im Speicher 'imgs'. Gespeichert wird nur bei echter Änderung.
+let lastSaved='';
+const snapshot=()=>({v:2,lib:st.lib,lists:st.lists,cur:st.cur,si:st.si,vol:st.vol,setId:st.setId,sets:st.sets,foot:st.foot,inv:st.inv,xp:st.xp,fo:st.fo});
+function err(t){const e=$('#err');e.textContent=t||'';e.classList.toggle('hide',!t)}
+async function saveNow(){const o=snapshot(),j=JSON.stringify(o);if(j===lastSaved)return true;const ok=await dbSet('kv','state',o);
+ if(ok){lastSaved=j;err('')}else err(db?'Speichern fehlgeschlagen – Speicher voll? Bitte unter ⚙ eine Sicherung exportieren und unbenutzte Lieder löschen.':'Speicher nicht verfügbar – Änderungen gehen beim Schließen verloren.');return ok}
 function saveSoon(){clearTimeout(sv);sv=setTimeout(saveNow,600)}
+const esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const d2b=u=>{const i=u.indexOf(','),h=u.slice(0,i),bin=atob(u.slice(i+1)),a=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)a[k]=bin.charCodeAt(k);return new Blob([a],{type:(h.match(/:(.*?);/)||[,'image/jpeg'])[1]})};
+const b2d=b=>new Promise((r,j)=>{const f=new FileReader();f.onload=()=>r(f.result);f.onerror=()=>j(f.error);f.readAsDataURL(b)});
+const newIm=()=>'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const IU={};
+async function loadImgs(s){if(!s||!s.pages)return;for(const pg of s.pages)if(pg.im&&!IU[pg.im]){const b=await dbGet('imgs',pg.im);if(b)IU[pg.im]=URL.createObjectURL(b)}}
+const songKey=x=>x.ccli?'c'+x.ccli:'t'+String(x.t||'').toLowerCase().replace(/[^a-z0-9äöüß]+/g,'');
+const curList=()=>st.lists.find(l=>l.id===st.cur)||null;
+function rebuild(){const l=curList(),a=l?l.songs.map(id=>st.lib[id]).filter(Boolean):[];
+ if(a.length){st.songs=a;st.demo=false}else{st.songs=DEMO();st.demo=true}
+ st.si=Math.max(0,Math.min(st.si||0,st.songs.length-1));st.pos=(I()[0]||{}).u}
+function libImgs(){const u=new Set();Object.values(st.lib).forEach(s=>(s.pages||[]).forEach(p=>p.im&&u.add(p.im)));return u}
+async function dropImgs(list){const used=libImgs();for(const im of list)if(!used.has(im)){await dbDel('imgs',im);if(IU[im]){URL.revokeObjectURL(IU[im]);delete IU[im]}}}
 // ---- Liedwechsel: Pad läuft weiter → Tonart in 4 s → Lied anzeigen → einzählen ----
 function goSong(n){if(n<0||n>=st.songs.length||st.ph==='xf')return;ens();const was=st.play;stop();const to=st.songs[n].k;
  if(st.pad&&to!==pkEff()){const from=pkEff();st.ph='xf';st.pov=to;const pp=padSync(4);ov(`Tonart ${KN[from]} → ${KN[to]}`,'',true);Promise.all([pp,new Promise(r=>setTimeout(r,4000))]).then(()=>enter(n,was))}else enter(n,was)}
-function enter(n,was){st.zoom=100;st.si=n;st.pov=null;st.ph='idle';st.pos=I()[0].u;st.mkOn=false;ov();chart();if(was)start()}
+function enter(n,was){st.zoom=100;st.si=n;st.pov=null;st.ph='idle';st.pos=I()[0].u;st.mkOn=false;ov();chart();loadImgs(st.songs[n+1]);if(was)start()}
 function ov(t,n,bar){const o=$('#ov');ovOn=!!(t||n);if(!ovOn){o.style.display='none';return}o.style.display='grid';$('#ot').textContent=t||'';$('#on').textContent=n||'';
  const b=$('#pb');b.style.display=bar?'block':'none';const i=b.firstChild;i.className='';if(bar){void i.offsetWidth;i.className='go'}}
 // ---- Navigation im Chart (Scrollen, kein Highlight) ----
@@ -151,7 +196,7 @@ function goto(it){const c=$('#chart'),s=S(),r=it.r||s.mk[it.s];let y,x=0;
  if(y!=null)c.scrollTo({top:Math.max(0,y-10),left:Math.max(0,x-10),behavior:'smooth'})}
 // ---- Ganzes Chart ohne Scrollen: Seiten zuschneiden und auf die Fläche einpassen ----
 const dims=pg=>{const c=pg.crop||{x0:0,y0:0,x1:1,y1:1,yf:1},iw=pg.iw||1,ih=pg.ih||1,yb=st.foot?c.y1:c.yf;return{iw,ih,x0:c.x0,y0:c.y0,cw:(c.x1-c.x0)*iw,ch:Math.max(.05,yb-c.y0)*ih}};
-function layout(){const c=$('#chart'),s=S();if(!s.pages)return;const ps=[...c.querySelectorAll('.pg')];if(!ps.length)return;
+function layout(){const c=$('#chart'),s=S();if(!s.pages)return;const ps=[...c.querySelectorAll('.pg')];if(!ps.length||ps.length!==s.pages.length)return;
  const AW=Math.max(50,c.clientWidth-16),AH=Math.max(50,c.clientHeight-16),d=s.pages.map(dims),sum=f=>d.reduce((a,x)=>a+f(x),0);
  const kr=Math.min(AW/sum(x=>x.cw),AH/Math.max(...d.map(x=>x.ch))),kc=Math.min(AW/Math.max(...d.map(x=>x.cw)),AH/sum(x=>x.ch)),k=Math.max(kr,kc)*st.zoom/100;
  $('#wrap').style.flexDirection=kc>kr?'column':'row';
@@ -178,25 +223,28 @@ $('#zM').onclick=()=>{st.zoom=Math.max(60,st.zoom-10);ui()};$('#zP').onclick=()=
 $('#inv').onclick=()=>{st.inv=!st.inv;ui()};$('#fit').onclick=()=>{st.zoom=100;ui()};$('#foot').onclick=()=>{st.foot=!st.foot;ui()};
 $('#metro').onclick=()=>st.play?stop():start(false);
 
-$('#pad').onclick=()=>{ens();st.pad=!st.pad;padSync(2);ui()};
+$('#pad').onclick=()=>{ens();st.pad=!st.pad;if(!st.pad){fadeUntil=Date.now()+st.fo*1000;setTimeout(ui,st.fo*1000+60)}else fadeUntil=0;padSync(st.pad?2:st.fo);ui()};
 $('#vol').oninput=e=>{st.vol=+e.target.value;if(pm)pm.gain.setTargetAtTime(st.vol,ac.currentTime,.05)};
 $('#pks').onchange=e=>{st.pov=e.target.value==='a'?null:+e.target.value;padSync(2);ui()};
 $('#sn').onclick=()=>goSong(st.si+1);$('#sp').onclick=()=>goSong(st.si-1);
-$('#ttl').onchange=e=>{S().t=e.target.value};
+$('#ttl').onchange=e=>{S().t=e.target.value;ui()};
 $('#mkb').onclick=()=>{if(!S().pages){$('#msg').textContent='Korrigieren geht nur bei importierten PDF-Seiten.';return}st.mkOn=!st.mkOn;chart(1)};
 $('#mkd').onclick=()=>{st.mkOn=false;chart(1)};
-// ---- PDF-Import: Lieder, Key, BPM, Sections (zweispaltig) ----
-$('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#msg').textContent='Lese PDF …';
+// ---- PDF-Import: Lieder, Key, BPM, Capo, CCLI, Sections; Seiten als Bilder einzeln speichern ----
+const SC=2.6; // Render-Auflösung (vorher 1.6) – schärfer auf dem Retina-Display
+$('#file').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;$('#msg').textContent='Lese PDF …';
+ try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(x){}
  try{pdfjsLib.GlobalWorkerOptions.workerSrc='pdf.worker.min.js';
   const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise,P=[];
-  for(let n=1;n<=pdf.numPages;n++){const pg=await pdf.getPage(n),vp=pg.getViewport({scale:1.6}),c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;
+  for(let n=1;n<=pdf.numPages;n++){$('#msg').textContent=`Lese Seite ${n}/${pdf.numPages} …`;const pg=await pdf.getPage(n),vp=pg.getViewport({scale:SC}),c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;
    await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+   const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.85));c.width=c.height=0;
    const ln=[],runs=[];
    (await pg.getTextContent()).items.filter(i=>i.str!=='').sort((a,b)=>b.transform[5]-a.transform[5]).forEach(i=>{const l=ln[ln.length-1];if(l&&Math.abs(l.y-i.transform[5])<2)l.p.push(i);else ln.push({y:i.transform[5],p:[i]})});
    ln.forEach(l=>{l.p.sort((a,b)=>a.transform[4]-b.transform[4]);let r=null;l.p.forEach(i=>{const x=i.transform[4];
     if(r&&x-r.x1<9){r.t+=i.str;r.it.push({x,x1:x+i.width,s:i.str});r.x1=Math.max(r.x1,x+i.width);r.h=Math.max(r.h,i.height)}else{if(r)runs.push(r);r={t:i.str,x,y:l.y,x1:x+i.width,h:i.height,it:[{x,x1:x+i.width,s:i.str}]}}});if(r)runs.push(r)});
-   const pts=runs.filter(r=>r.t.trim()).map(r=>{const q=vp.convertToViewportPoint(r.x,r.y);return{t:r.t.trim(),x:q[0]/vp.width,y:q[1]/vp.height,h:r.h*1.6/vp.height}});
-   const tx=pts.map(p=>p.t).join(' '),hd=tx.match(/\bKey\s*-\s*([A-G][#b♯♭]?)(m|min)?\s*\|/),bm=tx.match(/\b(?:Tempo|BPM)\s*-?\s*:?\s*(\d{2,3})/i),cm=tx.match(/\bCapo\s*-\s*(\d+)/i);
+   const pts=runs.filter(r=>r.t.trim()).map(r=>{const q=vp.convertToViewportPoint(r.x,r.y);return{t:r.t.trim(),x:q[0]/vp.width,y:q[1]/vp.height,h:r.h*SC/vp.height}});
+   const tx=pts.map(p=>p.t).join(' '),hd=tx.match(/\bKey\s*-\s*([A-G][#b♯♭]?)(m|min)?\s*\|/),bm=tx.match(/\b(?:Tempo|BPM)\s*-?\s*:?\s*(\d{2,3})/i),cm=tx.match(/\bCapo\s*-\s*(\d+)/i),cc=tx.match(/CCLI Song\s*#\s*(\d+)/i);
    const top=pts.length?pts.reduce((a,p)=>p.h>a.h?p:a):{t:'Lied '+n};
    const ft=pts.find(p=>/^CCLI Song/.test(p.t))||{y:1,h:0},foot=ft.y-ft.h*2,col=p=>p.x<.48?0:1;
    const hs=pts.map(p=>({id:secId(p.t),col:col(p),y:p.y-p.h*1.15})).filter(h=>h.id).sort((a,b)=>a.col-b.col||a.y-b.y);
@@ -207,23 +255,40 @@ $('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#msg').t
    const chords=rr.filter(isCh).map(r=>{const parts=[...r.it].sort((a,b)=>a.x-b.x);let x1=r.x1;
     rr.forEach(u=>{if(u!==r&&SUP.test(u.t.trim())&&u.y>r.y+1&&u.y<r.y+10&&u.x>=r.x-2&&u.x<=r.x1+4){u.it.forEach(q=>{let k=-1;parts.forEach((b,j)=>{if(b.s.trim()&&b.x1<=q.x+1.5)k=j});parts.splice(k+1,0,q)});x1=Math.max(x1,u.x1)}});
     const t=parts.map(q=>q.s).join('').replace(/\s+/g,' ').trim(),q=vp.convertToViewportPoint(r.x,r.y);
-    return{t,x:q[0]/vp.width,y:q[1]/vp.height,w:(x1-r.x)*1.6/vp.width,h:r.h*1.6/vp.height}});
-   const metas=rr.filter(r=>/^Key\s*-?\s*[A-G]/.test(r.t.trim())).map(r=>{const t=r.t.trim(),q=vp.convertToViewportPoint(r.x,r.y);return{kind:/\|/.test(t)?'hdr':'key',t,x:q[0]/vp.width,y:q[1]/vp.height,w:(r.x1-r.x)*1.6/vp.width,h:r.h*1.6/vp.height}})
+    return{t,x:q[0]/vp.width,y:q[1]/vp.height,w:(x1-r.x)*SC/vp.width,h:r.h*SC/vp.height}});
+   const metas=rr.filter(r=>/^Key\s*-?\s*[A-G]/.test(r.t.trim())).map(r=>{const t=r.t.trim(),q=vp.convertToViewportPoint(r.x,r.y);return{kind:/\|/.test(t)?'hdr':'key',t,x:q[0]/vp.width,y:q[1]/vp.height,w:(r.x1-r.x)*SC/vp.width,h:r.h*SC/vp.height}})
     .filter(m=>m.kind==='hdr'||/^Key\s*-?\s*[A-G][#b♯♭]?(m|min)?$/.test(m.t));
-   const crop=pts.length?{x0:cl(Math.min(...pts.map(p=>p.x))-.02),x1:cl(Math.max(...rr.map(r=>r.x1))*1.6/vp.width+.02),y0:cl(Math.min(...pts.map(p=>p.y-p.h*1.2))-.015),y1:cl(Math.max(...pts.map(p=>p.y))+.015),yf:cl(Math.max(...bot)+.012)}:null;
-   P.push({img:c.toDataURL('image/jpeg',.85),iw:vp.width,ih:vp.height,crop,hd,bm,cap:cm?+cm[1]:0,chords,metas,title:top.t,hs,bot,has:pts.length})}
-  if(P.some(p=>p.has))P.splice(0,P.length,...P.filter(p=>p.has));
-  const songs=[];let cur;
-  P.forEach(p=>{if(!cur||p.hd){cur=mkSong(p.title||'Lied '+(songs.length+1),7,100,[],[]);cur.found=0;songs.push(cur)}
-   if(p.hd){cur.k=cur.k0=pc(p.hd[1]);cur.mn=p.hd[2]?1:0;cur.c0=cur.capo=p.cap;cur.found++}if(p.bm){cur.b=cur.b0=+p.bm[1];cur.found++}
-   cur.pages.push({img:p.img,iw:p.iw,ih:p.ih,crop:p.crop,chords:p.chords,metas:p.metas});const pi=cur.pages.length-1;
-   p.hs.forEach((h,j)=>{const nx=p.hs.slice(j+1).find(z=>z.col===h.col),y0=Math.max(0,h.y-.004),y1=nx?nx.y-.004:p.bot[h.col]+.006;
-    const r={p:pi,x:h.col?.5:.02,y:y0,w:.48,h:Math.max(.03,y1-y0)};if(!cur.mk[h.id])cur.mk[h.id]=r;cur.items.push(Object.assign(mk(h.id),{r}))})});
-  songs.forEach(x=>{if(!x.items.length)x.items=[mk('V1')]});
-  stop();st.zoom=100;st.songs=songs;st.si=0;st.pov=null;st.pos=I()[0].u;st.ph='idle';chart();
-  const bad=songs.filter(x=>x.found<2).length,nom=songs.filter(x=>!Object.keys(x.mk).length).length;
-  $('#msg').textContent=`${songs.length} Lieder aus ${P.length} Seiten, ${songs.reduce((a,x)=>a+x.items.length,0)} Abschnitte erkannt.`+(bad?` Key/BPM bei ${bad} fehlt – bitte prüfen.`:'')+(nom?` Keine Sections bei ${nom} – bitte markieren.`:'')}
+   const crop=pts.length?{x0:cl(Math.min(...pts.map(p=>p.x))-.02),x1:cl(Math.max(...rr.map(r=>r.x1))*SC/vp.width+.02),y0:cl(Math.min(...pts.map(p=>p.y-p.h*1.2))-.015),y1:cl(Math.max(...pts.map(p=>p.y))+.015),yf:cl(Math.max(...bot)+.012)}:null;
+   P.push({blob,iw:vp.width,ih:vp.height,crop,hd,bm,cc,cap:cm?+cm[1]:0,chords,metas,title:top.t,hs,bot,has:pts.length})}
+  const r=await mergeImport(P,f.name);
+  stop();st.zoom=100;st.si=0;st.pov=null;st.ph='idle';rebuild();chart();await saveNow();
+  const bad=r.songs.filter(x=>x.found<2).length,nom=r.songs.filter(x=>!Object.keys(x.mk).length).length;
+  $('#msg').textContent=`${r.songs.length} Lieder aus ${r.pages} Seiten → Setlist „${r.name}“.`+(r.known?` ${r.known} Lied(er) schon bekannt – deine Einstellungen (Capo, Key, BPM, Ablauf, Notiz) übernommen.`:'')+(r.newKey?` Bei ${r.newKey} steht im PDF eine andere Tonart – Key und Capo neu aus dem PDF.`:'')+(bad?` Key/BPM bei ${bad} fehlt – bitte prüfen.`:'')+(nom?` Keine Sections bei ${nom} – bitte markieren.`:'')}
  catch(err){$('#msg').textContent='PDF konnte nicht gelesen werden ('+(err&&err.message||'Fehler')+').'}};
+// Lieder bauen und mit der Bibliothek zusammenführen (Wiedererkennung über CCLI-Nummer, sonst Titel)
+async function mergeImport(P,fname){
+ if(P.some(p=>p.has))P.splice(0,P.length,...P.filter(p=>p.has));
+ const songs=[];let cur;
+ for(const p of P){if(!cur||p.hd){cur=mkSong(p.title||'Lied '+(songs.length+1),7,100,[],[]);cur.found=0;songs.push(cur)}
+  if(p.hd){cur.k=cur.k0=pc(p.hd[1]);cur.mn=p.hd[2]?1:0;cur.c0=cur.capo=p.cap;cur.found++}if(p.bm){cur.b=cur.b0=+p.bm[1];cur.found++}if(p.cc&&!cur.ccli)cur.ccli=p.cc[1];
+  const im=newIm();if(!(await dbSet('imgs',im,p.blob)))throw new Error('Speicher voll – Seiten konnten nicht gespeichert werden');
+  cur.pages.push({im,sz:p.blob.size||0,iw:p.iw,ih:p.ih,crop:p.crop,chords:p.chords,metas:p.metas});const pi=cur.pages.length-1;
+  p.hs.forEach((h,j)=>{const nx=p.hs.slice(j+1).find(z=>z.col===h.col),y0=Math.max(0,h.y-.004),y1=nx?nx.y-.004:p.bot[h.col]+.006;
+   const r={p:pi,x:h.col?.5:.02,y:y0,w:.48,h:Math.max(.03,y1-y0)};if(!cur.mk[h.id])cur.mk[h.id]=r;cur.items.push(Object.assign(mk(h.id),{r}))})}
+ songs.forEach(x=>{if(!x.items.length)x.items=[mk('V1')]});
+ let known=0,newKey=0;const ids=[],old=[];
+ for(const x of songs){let id=songKey(x),oid=id,ex=st.lib[id];if(!ex&&x.ccli){const tk=songKey({t:x.t});if(st.lib[tk]&&!st.lib[tk].ccli){ex=st.lib[tk];oid=tk}} // ältere Lieder ohne CCLI: über den Titel
+  if(ex&&!ids.includes(id)){known++;x.note=ex.note||'';
+   if(ex.k0===x.k0&&ex.mn===x.mn){x.k=ex.k;x.capo=capoOf(ex);if(ex.b0===x.b0)x.b=ex.b;
+    const sig=o=>Object.keys(o.mk||{}).sort().join();if(sig(ex)===sig(x)&&ex.pages&&ex.pages.length===x.pages.length){x.items=ex.items;x.mk=ex.mk}}
+   else newKey++;
+   (ex.pages||[]).forEach(pg=>pg.im&&old.push(pg.im))}
+  if(ex&&oid!==id&&!ids.includes(id)){delete st.lib[oid];st.lists.forEach(l=>{l.songs=l.songs.map(z=>z===oid?id:z)})}
+  while(ids.includes(id))id+='_';x.id=id;st.lib[id]=x;ids.push(id)}
+ await dropImgs(old);
+ const name=String(fname||'Setlist').replace(/\.pdf$/i,'').replace(/[_]+/g,' ').trim()||'Setlist',same=st.lists.find(z=>z.name===name);
+ if(same){same.songs=ids;same.t=Date.now();st.cur=same.id}else{const l={id:'L'+Date.now().toString(36),name,t:Date.now(),songs:ids};st.lists.unshift(l);st.cur=l.id}
+ return{songs,known,newKey,pages:P.length,name}}
 // ---- Capo / Transposition: Key = klingend (Pad), Griffe = Key − Capo ----
 let osig=null;
 const NS=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'],NF=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
@@ -251,26 +316,39 @@ $('#xp').onclick=()=>{st.xp=!st.xp;ui()};
 $('#co').onclick=()=>{const x=S();if(x.k0!=null)x.k=x.k0;x.capo=x.c0||0;if(st.pov==null)padSync(2);ui()};
 // ---- Pad-Set importieren / wählen / löschen ----
 $('#pset').onchange=e=>{st.setId=e.target.value||null;padSync(2);ui()};
+// Dateinamen: "G - WARM - …", "F# - …", "11_Key_of_G_Pads_Clouds", ersatzweise Nummer 1–12 (A=1 … G#=12)
+function parsePad(fn){const b=fn.replace(/\.[^.]+$/,'').trim();let m=b.match(/key[\s_\-]*of[\s_\-]*(.*)$/i);
+ if(m){const r=m[1].match(/^([A-G])(#|♯|b|♭|[\s_\-]?[Ss]harp|[\s_\-]?[Ff]lat)?(?![A-Za-z])/);
+  if(r){const a=r[2]||'',acc=/#|♯|[Ss]harp/.test(a)?'#':/b|♭|[Ff]lat/.test(a)?'b':'';
+   const rest=m[1].slice(r[0].length).replace(/[\s_\-]+/g,' ').replace(/\bpads?\b/ig,' ').replace(/\s+/g,' ').trim();
+   return{k:pc(r[1]+acc),nm:rest?rest[0].toUpperCase()+rest.slice(1):null}}}
+ m=b.match(/^([A-Ga-g])\s*([#b♯♭])?(?=[\s_.\-]|$)/);
+ if(m){const q=b.split('-').map(x=>x.trim())[1];return{k:pc(m[1].toUpperCase()+(m[2]||'')),nm:q?q[0].toUpperCase()+q.slice(1).toLowerCase():null}}
+ const n=b.match(/^(\d{1,2})[\s_\-]/);if(n&&+n[1]>=1&&+n[1]<=12)return{k:(+n[1]+8)%12,nm:null,num:1};return{k:null,nm:null}}
 $('#padfile').onchange=async e=>{const fl=[...e.target.files];e.target.value='';if(!fl.length)return;
  if(!db){$('#msg').textContent='Speicher nicht verfügbar – Import nicht möglich.';return}
- const it=fl.map(f=>{const m=f.name.trim().match(/^([A-Ga-g])\s*([#b♯♭])?(?=[\s_.\-]|$)/);return{f,k:m?pc(m[1].toUpperCase()+(m[2]||'')):null}}),ok=it.filter(x=>x.k!==null),bad=it.length-ok.length;
- if(!ok.length){$('#msg').textContent='Keine Tonart in den Dateinamen erkannt (erwartet z. B. „G - …“ oder „F# - …“).';return}
- const pt=ok.map(x=>x.f.name.replace(/\.[^.]+$/,'').split('-').map(y=>y.trim())[1]),g=pt.every(x=>x&&x===pt[0])?pt[0][0].toUpperCase()+pt[0].slice(1).toLowerCase():'Set '+(st.sets.length+1);
- const name=$('#setname').value.trim()||g,id='s'+Date.now();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
- let n=0;for(const x of ok){$('#msg').textContent=`Speichere ${++n}/${ok.length} …`;if(!await dbSet('pads',id+':'+x.k,x.f)){$('#msg').textContent=`Speichern fehlgeschlagen bei ${x.f.name} (Speicher voll?).`;for(const y of ok)await dbDel('pads',id+':'+y.k);return}}
- const keys=[...new Set(ok.map(x=>x.k))].sort((a,b)=>a-b);st.sets.push({id,name,keys});st.setId=id;$('#setname').value='';
- const miss=KN.map((k,i)=>keys.includes(i)?null:k).filter(Boolean);
- $('#msg').textContent=`Set „${name}“: ${keys.length} Tonarten gespeichert.`+(miss.length?` Es fehlen: ${miss.join(', ')}.`:'')+(bad?` ${bad} Datei(en) ohne erkennbare Tonart übersprungen.`:'');
+ const it=fl.map(f=>({f,...parsePad(f.name)})),ok=it.filter(x=>x.k!==null),bad=it.length-ok.length;
+ if(!ok.length){$('#msg').textContent='Keine Tonart in den Dateinamen erkannt (erwartet z. B. „G - …“, „F# - …“ oder „…Key_of_G…“).';return}
+ const gm=new Map();ok.forEach(x=>{const g=x.nm||'';if(!gm.has(g))gm.set(g,[]);gm.get(g).push(x)});
+ const typed=$('#setname').value.trim(),out=[];let n=0,gi=0;try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+ for(const [g,xs] of gm){const name=(gm.size===1&&typed)||g||('Set '+(st.sets.length+1)),ex=st.sets.find(z=>z.name===name),id=ex?ex.id:'s'+Date.now()+(gi++);
+  for(const x of xs){$('#msg').textContent=`Speichere ${++n}/${ok.length} …`;if(!await dbSet('pads',id+':'+x.k,x.f)){$('#msg').textContent=`Speichern fehlgeschlagen bei ${x.f.name} (Speicher voll?).`;if(!ex)for(const y of xs)await dbDel('pads',id+':'+y.k);return}}
+  const keys=[...new Set([...(ex?ex.keys:[]),...xs.map(x=>x.k)])].sort((a,b)=>a-b);if(ex)ex.keys=keys;else st.sets.push({id,name,keys});st.setId=id;
+  out.push(`„${name}“: ${keys.length} Tonarten`+(keys.length<12?` (es fehlen: ${KN.filter((k,i)=>!keys.includes(i)).join(', ')})`:''))}
+ $('#setname').value='';
+ $('#msg').textContent='Importiert – '+out.join(' · ')+'.'+(bad?` ${bad} Datei(en) ohne erkennbare Tonart übersprungen.`:'')+(ok.some(x=>x.num)?' Tonart aus der Dateinummer abgeleitet (A=1 … G♯=12) – bitte prüfen.':'');
  await saveNow();padSync(2);ui()};
 $('#delset').onclick=async()=>{const s=st.sets.find(x=>x.id===st.setId);if(!s){$('#msg').textContent='Kein Set ausgewählt.';return}
  if(!delArm){delArm=true;$('#delset').textContent='Wirklich?';setTimeout(()=>{delArm=false;$('#delset').textContent='Set löschen'},3000);return}
  delArm=false;$('#delset').textContent='Set löschen';for(const k of s.keys)await dbDel('pads',s.id+':'+k);st.sets=st.sets.filter(x=>x!==s);st.setId=null;
- $('#msg').textContent=`Set „${s.name}“ gelöscht.`;padSync(2);ui()};
+ $('#msg').textContent=`Set „${esc(s.name)}“ gelöscht.`;padSync(2);ui()};
 // ---- Chart + manuelle Section-Zuordnung (nur für Sprungmarken) ----
 function chart(keep){osig=null;const s=S(),c=$('#chart'),top=c.scrollTop;
- c.innerHTML=s.pages?`<div id="wrap">`+s.pages.map((pg,pi)=>`<div class="pg" data-p="${pi}"><div class="in"><img src="${pg.img}">${st.mkOn?Object.entries(s.mk).filter(([k,r])=>r.p===pi).map(([k,r])=>`<div class="mk" data-l="${nm(k)}" style="left:${r.x*100}%;top:${r.y*100}%;width:${r.w*100}%;height:${r.h*100}%"></div>`).join(''):''}</div></div>`).join('')+`</div>`
+ c.innerHTML=s.pages?`<div id="wrap">`+s.pages.map((pg,pi)=>`<div class="pg" data-p="${pi}"><div class="in"><img data-im="${pg.im||''}"${IU[pg.im]||pg.img?` src="${IU[pg.im]||pg.img}"`:''}>${st.mkOn?Object.entries(s.mk).filter(([k,r])=>r.p===pi).map(([k,r])=>`<div class="mk" data-l="${nm(k)}" style="left:${r.x*100}%;top:${r.y*100}%;width:${r.w*100}%;height:${r.h*100}%"></div>`).join(''):''}</div></div>`).join('')+`</div>`
   :`<div id="wrap" class="txt">`+Object.keys(CH).map(k=>`<section id="m-${k}"><h3>${SEC[k].toUpperCase()}</h3><pre>${CH[k].map(l=>`<b>${l[0]}</b>\n${l[1]}`).join('\n')}</pre></section>`).join('')+`</div>`;
- c.classList.toggle('mkon',st.mkOn);layout();if(keep){c.scrollTop=top}else c.scrollTop=0;ui()}
+ c.classList.toggle('mkon',st.mkOn);layout();if(keep){c.scrollTop=top}else c.scrollTop=0;
+ if(s.pages&&s.pages.some(p=>p.im&&!IU[p.im]))loadImgs(s).then(()=>{if(S()!==s)return;c.querySelectorAll('img[data-im]').forEach(i=>{const u=IU[i.dataset.im];if(u&&i.getAttribute('src')!==u)i.src=u})});
+ ui()}
 $('#chart').onpointerdown=e=>{if(!st.mkOn)return;const pg=e.target.closest('.in');if(!pg)return;const r=pg.getBoundingClientRect(),x0=(e.clientX-r.left)/r.width,y0=(e.clientY-r.top)/r.height;
  const box=document.createElement('div');box.className='mk';pg.appendChild(box);let R=null;
  const mvf=ev=>{const x1=Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width)),y1=Math.max(0,Math.min(1,(ev.clientY-r.top)/r.height));
@@ -287,7 +365,7 @@ function ui(){const a=I(),live=st.mode==='live',s=S();
  if($('#ttl')!==document.activeElement)$('#ttl').value=s.t;$('#ttl').disabled=live;
  const kn=KN[s.k]+(s.mn?'m':'');$('#pos').textContent=`${st.si+1}/${st.songs.length}`;$('#key').textContent=kn;$('#bpm').textContent=s.b;
  $('#kv').textContent=`Key ${kn} · ${s.b} BPM · Zoom ${st.zoom}%`;$('#pks').value=st.pov==null?'a':st.pov;
- $('#metro').classList.toggle('on',st.play);$('#pad').classList.toggle('on',st.pad);$('#pad').textContent=st.pad?'Pad '+KN[pkEff()]+(st.padMiss?' ⚠':''):'Pad';
+ $('#metro').classList.toggle('on',st.play);$('#pad').classList.toggle('on',st.pad);$('#pad').textContent=st.pad?'Pad '+KN[pkEff()]+(st.padMiss?' ⚠':''):(Date.now()<fadeUntil?'Pad ↘':'Pad');
  $('#mkb').classList.toggle('on',st.mkOn);$('#inv').classList.toggle('on',st.inv);$('#sn').disabled=st.si>=st.songs.length-1;$('#sp').disabled=st.si<1;
  $('#sh').classList.toggle('hide',!(st.edit&&!st.mkOn));$('#mkbar').classList.toggle('hide',!st.mkOn||live);
  const ids=[...new Set([...a.map(x=>x.s),...Object.keys(SEC)])];
@@ -297,19 +375,108 @@ function ui(){const a=I(),live=st.mode==='live',s=S();
  document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{const it=a[+c.dataset.k];if(st.edit){st.sel=+c.dataset.k;ui()}else{st.pos=it.u;ui();goto(it)}});
  if(st.edit&&!live){$('#tb').innerHTML=`<button class="sm" data-a="l">◀</button><button class="sm" data-a="r">▶</button><button class="sm" data-a="d">Duplizieren</button><button class="sm" data-a="x">Löschen</button><span class="mut">Einfügen:</span>`+ids.map(k=>`<button class="sm" data-add="${k}">${k}</button>`).join('');
   $('#tb').onclick=e=>{const t=e.target;if(t.dataset.add)add(t.dataset.add);else if(t.dataset.a)({l:()=>mv(-1),r:()=>mv(1),d:dup,x:del})[t.dataset.a]()}}
- $('#pset').innerHTML='<option value="">Platzhalter-Klang</option>'+st.sets.map(x=>`<option value="${x.id}">${x.name}</option>`).join('');$('#pset').value=st.setId||'';
+ $('#pset').innerHTML='<option value="">Platzhalter-Klang</option>'+st.sets.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');$('#pset').value=st.setId||'';
  {const sh=shiftOf(s),cp=capoOf(s);$('#capo').textContent=(cp>0||sh)?`Capo ${cp} (${shapeName(s)})`+(sh?(st.xp?' · Chart angepasst':' · Chart Original'):''):'';
   $('#cv').textContent=`Capo ${cp} · Griffe in ${shapeName(s)}`;$('#xp').classList.toggle('on',st.xp);
   const sig=[st.si,sh,st.xp,s.k,capoOf(s),s.b].join();if(osig!==sig){osig=sig;overlay()}
   const ch=[];(s.pages||[]).forEach(pg=>(pg.chords||[]).forEach(c=>c.t.split(' ').forEach(t=>{if(t&&t!=='|'&&!ch.includes(t))ch.push(t)})));
   $('#cmap').textContent=sh&&ch.length?'Original → jetzt: '+ch.slice(0,14).map(t=>t+'→'+tTxt(t,sh,flatKey(shapeOf(s),s.mn))).join(' · '):''}
+ {const nt=(s.note||'').trim();$('#note').classList.toggle('hide',!nt);if($('#note').textContent!==nt)$('#note').textContent=nt;
+  if($('#notes')!==document.activeElement)$('#notes').value=s.note||'';$('#notes').disabled=st.demo;$('#fo').value=String(st.fo);
+  $('#lp').classList.toggle('hide',!st.lp);$('#list').classList.toggle('on',st.lp);if(st.lp)renderList()}
  saveSoon();padSync()}
+// ---- Setlist-Liste ----
+const fmtD=d=>d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+function lastUsed(id){let b=null;st.lists.forEach(l=>{if(l.id!==st.cur&&l.songs.includes(id)&&(!b||(l.t||0)>(b.t||0)))b=l});return b}
+function renderList(){const l=curList(),live=st.mode==='live',ed=!live&&!!l,has=!!l&&!st.demo;
+ $('#lsel').innerHTML=st.lists.length?st.lists.map(z=>`<option value="${z.id}">${esc(z.name)} (${z.songs.length})</option>`).join(''):'<option value="">Noch keine Setlist</option>';if(l)$('#lsel').value=l.id;
+ $('#lnew').classList.toggle('hide',live);$('#lcopy').classList.toggle('hide',live||!has);
+ $('#lnamerow').classList.toggle('hide',!l||live);if(l&&$('#lname')!==document.activeElement)$('#lname').value=l.name;
+ $('#lsongs').innerHTML=!l?'<div class="mut" style="padding:10px 4px">Noch keine Setlist. „+ Neue Setlist“ antippen und Lieder aus der Bibliothek wählen – oder unter ⚙ eine PDF importieren.</div>'
+  :!has?'<div class="mut" style="padding:10px 4px">Diese Setlist ist noch leer. Tippe unten in der Bibliothek auf die Lieder für Sonntag.</div>'
+  :st.songs.map((x,i)=>`<div class="lrow ${i===st.si?'cur':''}" data-i="${i}"><span class="ln">${i+1}</span><span class="lt">${esc(x.t)}</span><span class="mut">${KN[x.k]}${x.mn?'m':''} · ${x.b} BPM${capoOf(x)?' · Capo '+capoOf(x):''}${(x.note||'').trim()?' · ✎':''}</span>${ed?`<button class="sm" data-up="${i}" ${i?'':'disabled'}>↑</button><button class="sm" data-dn="${i}" ${i<st.songs.length-1?'':'disabled'}>↓</button><button class="sm" data-rm="${i}">✕</button>`:''}</div>`).join('');
+ $('#libbox').classList.toggle('hide',live||!l);if(!live&&l)renderLib()}
+function renderLib(){const l=curList(),inL=new Set(l?l.songs:[]),q=($('#lq').value||'').trim().toLowerCase();
+ const all=Object.values(st.lib).sort((a,b)=>String(a.t).localeCompare(String(b.t),'de')),f=q?all.filter(x=>String(x.t).toLowerCase().includes(q)):all;
+ $('#lcount').textContent=all.length?(q?`${f.length} von ${all.length}`:`${all.length} Lieder`):'';
+ $('#lib').innerHTML=!all.length?'<div class="mut" style="padding:8px 4px">Die Bibliothek ist noch leer – importiere zuerst eine PDF (⚙).</div>'
+  :!f.length?'<div class="mut" style="padding:8px 4px">Kein Lied gefunden.</div>'
+  :f.map(x=>{const u=lastUsed(x.id),inn=inL.has(x.id);return `<div class="lrow ${inn?'in':''}" data-lib="${esc(x.id)}"><span class="lt">${esc(x.t)}</span><span class="mut">${KN[x.k]}${x.mn?'m':''} · ${x.b} BPM${capoOf(x)?' · Capo '+capoOf(x):''}</span><span class="mut lu">${u?'zuletzt: '+esc(u.name):'noch in keiner anderen Setlist'}</span><span class="lb">${inn?'✓':'+'}</span></div>`}).join('')}
+function afterListChange(cid){const was=S();rebuild();const ni=st.songs.findIndex(x=>x.id===cid);if(ni>=0)st.si=ni;if(S()!==was){chart();stop()}else ui()}
+$('#list').onclick=()=>{st.lp=!st.lp;if(st.lp)st.edit=false;ui()};$('#lclose').onclick=()=>{st.lp=false;ui()};
+$('#lsongs').onclick=e=>{const b=e.target.closest('button'),l=curList();
+ if(b){if(!l)return;const cid=S().id,a=l.songs,sw=(i,j)=>{if(j>=0&&j<a.length)[a[i],a[j]]=[a[j],a[i]]};
+  if(b.dataset.up!=null)sw(+b.dataset.up,+b.dataset.up-1);else if(b.dataset.dn!=null)sw(+b.dataset.dn,+b.dataset.dn+1);else if(b.dataset.rm!=null)a.splice(+b.dataset.rm,1);
+  afterListChange(cid);return}
+ const r=e.target.closest('.lrow');if(r){const i=+r.dataset.i;st.lp=false;if(i!==st.si)goSong(i);else ui()}};
+$('#lsel').onchange=e=>{if(!e.target.value)return;st.cur=e.target.value;st.si=0;st.pov=null;stop();rebuild();chart()};
+$('#lib').onclick=e=>{const r=e.target.closest('[data-lib]'),l=curList();if(!r||!l||st.mode==='live')return;const id=r.dataset.lib,cid=st.demo?null:S().id,i=l.songs.indexOf(id);
+ if(i>=0){l.songs.splice(i,1);toast('Entfernt: '+st.lib[id].t)}else{l.songs.push(id);toast(`Hinzugefügt (Nr. ${l.songs.length}): `+st.lib[id].t)}afterListChange(cid)};
+$('#lq').oninput=()=>renderLib();
+function openList(l){st.lists.unshift(l);st.cur=l.id;st.si=0;st.pov=null;$('#lq').value='';rebuild();chart();stop()}
+$('#lnew').onclick=()=>{const d=new Date();d.setDate(d.getDate()+(7-d.getDay())%7);const base='Sonntag '+fmtD(d);let name=base,n=2;while(st.lists.some(z=>z.name===name))name=base+' ('+(n++)+')';
+ openList({id:'L'+Date.now().toString(36),name,t:Date.now(),songs:[]});toast('Neue Setlist – Name oben änderbar')};
+$('#lcopy').onclick=()=>{const l=curList();if(!l)return;let name=l.name+' (Kopie)',n=2;while(st.lists.some(z=>z.name===name))name=l.name+' (Kopie '+(n++)+')';
+ openList({id:'L'+Date.now().toString(36),name,t:Date.now(),songs:[...l.songs]});toast('Kopie angelegt – Name oben änderbar')};
+$('#lname').onchange=e=>{const l=curList(),v=e.target.value.trim();if(l&&v)l.name=v;ui()};
+function arm(btn,label,fn){if(btn.dataset.arm){delete btn.dataset.arm;btn.textContent=label;fn();return}btn.dataset.arm=1;btn.textContent='Wirklich?';setTimeout(()=>{if(btn.dataset.arm){delete btn.dataset.arm;btn.textContent=label}},3000)}
+$('#ldel').onclick=e=>arm(e.target,'Setlist löschen',()=>{st.lists=st.lists.filter(z=>z.id!==st.cur);st.cur=st.lists[0]?st.lists[0].id:null;st.si=0;stop();rebuild();chart();toast('Setlist gelöscht – die Lieder bleiben in der Bibliothek')});
+// ---- Notiz, Tap-Tempo, Ausblendzeit ----
+$('#notes').oninput=e=>{if(st.demo)return;S().note=e.target.value;ui()};
+$('#note').onclick=()=>$('#note').classList.toggle('open');
+$('#fo').onchange=e=>{st.fo=+e.target.value;ui()};
+let taps=[];$('#tap').onclick=()=>{const n=performance.now();if(taps.length&&n-taps[taps.length-1]>2000)taps=[];taps.push(n);taps=taps.slice(-6);
+ if(taps.length>=3){let d=0;for(let i=1;i<taps.length;i++)d+=taps[i]-taps[i-1];S().b=Math.max(40,Math.min(220,Math.round(60000/(d/(taps.length-1)))));$('#tap').textContent='Tap · '+S().b;ui()}
+ else $('#tap').textContent='Tap ('+taps.length+')'};
+// ---- Pedal / Tastatur ----
+let tt=null;function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('show'),1400)}
+document.addEventListener('keydown',e=>{const t=e.target;if(t&&(t.tagName==='TEXTAREA'||t.tagName==='SELECT'||(t.tagName==='INPUT'&&t.type!=='range')))return;
+ const k=e.key,d=['ArrowRight','PageDown','ArrowDown'].includes(k)?1:['ArrowLeft','PageUp','ArrowUp'].includes(k)?-1:0;if(!d)return;e.preventDefault();if(e.repeat)return;
+ const n=st.si+d;if(n<0||n>=st.songs.length){toast(d>0?'Letztes Lied erreicht':'Erstes Lied erreicht');return}if(st.ph==='xf')return;toast(d>0?'▶ Nächstes Lied':'◀ Voriges Lied');goSong(n)});
+// ---- Sicherung, Bibliothek aufräumen, Speicherinfo ----
+async function storInfo(){const n=Object.keys(st.lib).length;let mb=0;Object.values(st.lib).forEach(s=>(s.pages||[]).forEach(p=>mb+=(p.sz||0)));let t=`Bibliothek: ${n} Lieder · ${(mb/1048576).toFixed(1)} MB Charts`;
+ try{if(navigator.storage&&navigator.storage.estimate){const q=await navigator.storage.estimate();if(q&&q.usage!=null)t+=` · belegt ${(q.usage/1048576).toFixed(0)} MB`+(q.quota?` von ${(q.quota/1073741824).toFixed(1)} GB`:'')}}catch(e){}
+ $('#stor').textContent=t}
+$('#edit').addEventListener('click',()=>{st.lp=false;if(st.edit)storInfo();ui()});
+$('#bkx').onclick=async()=>{$('#msg').textContent='Erstelle Sicherung …';try{const imgs={};
+ for(const s of Object.values(st.lib))for(const pg of s.pages||[])if(pg.im&&!imgs[pg.im]){const b=await dbGet('imgs',pg.im);if(b)imgs[pg.im]=await b2d(b)}
+ const o={app:'worship-live-player',v:2,date:new Date().toISOString(),lib:st.lib,lists:st.lists,cur:st.cur,prefs:{vol:st.vol,foot:st.foot,inv:st.inv,xp:st.xp,fo:st.fo},imgs};
+ const name='worship-sicherung-'+new Date().toISOString().slice(0,10)+'.json',file=new File([JSON.stringify(o)],name,{type:'application/json'}),info=`${Object.keys(st.lib).length} Lieder, ${st.lists.length} Setlists (ohne Pad-Dateien)`;
+ try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});$('#msg').textContent=`Sicherung übergeben: ${info}. Im Teilen-Menü „In Dateien sichern“ wählen.`;return}}
+ catch(x){if(x&&x.name==='AbortError'){$('#msg').textContent='Sicherung abgebrochen.';return}}
+ const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},5000);
+ $('#msg').textContent=`Sicherung erstellt: ${info}.`}catch(x){$('#msg').textContent='Sicherung fehlgeschlagen ('+(x&&x.message||'Fehler')+').'}};
+$('#bki').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;$('#msg').textContent='Lade Sicherung …';
+ try{const o=JSON.parse(await f.text());if(o.app!=='worship-live-player'||!o.lib)throw new Error('keine Sicherung dieser App');
+  for(const [id,u] of Object.entries(o.imgs||{}))if(!(await dbSet('imgs',id,d2b(u))))throw new Error('Speicher voll');
+  Object.assign(st.lib,o.lib);for(const l of o.lists||[]){const i=st.lists.findIndex(z=>z.id===l.id);if(i>=0)st.lists[i]=l;else st.lists.push(l)}
+  st.lists.sort((a,b)=>(b.t||0)-(a.t||0));if(o.prefs)['vol','foot','inv','xp','fo'].forEach(k=>{if(o.prefs[k]!=null)st[k]=o.prefs[k]});
+  if(!curList())st.cur=(o.cur&&st.lists.some(z=>z.id===o.cur))?o.cur:(st.lists[0]&&st.lists[0].id);
+  uid=Math.max(uid,0,...Object.values(st.lib).flatMap(x=>(x.items||[]).map(i=>i.u)));$('#vol').value=st.vol;if(pm)pm.gain.value=st.vol;
+  stop();st.si=0;rebuild();chart();await saveNow();storInfo();
+  $('#msg').textContent=`Sicherung geladen: ${Object.keys(o.lib).length} Lieder, ${(o.lists||[]).length} Setlists. Pad-Dateien bitte neu importieren, falls sie fehlen.`}
+ catch(x){$('#msg').textContent='Sicherung konnte nicht geladen werden ('+(x&&x.message||'Fehler')+').'}};
+const orphans=()=>{const used=new Set(st.lists.flatMap(l=>l.songs));return Object.keys(st.lib).filter(id=>!used.has(id))};
+$('#clean').onclick=e=>{const g=orphans();if(!g.length){$('#msg').textContent='Alle Lieder stecken in einer Setlist – nichts zu löschen.';return}
+ const btn=e.target,label='Lieder ohne Setlist löschen';if(!btn.dataset.arm){btn.dataset.arm=1;btn.textContent=`${g.length} Lied(er) endgültig löschen?`;$('#msg').textContent='Betroffen: '+g.map(id=>st.lib[id].t).join(', ')+'. Sie sind danach auch nicht mehr in der Bibliothek.';
+  setTimeout(()=>{if(btn.dataset.arm){delete btn.dataset.arm;btn.textContent=label}},4000);return}
+ delete btn.dataset.arm;btn.textContent=label;(async()=>{const ims=[];g.forEach(id=>{(st.lib[id].pages||[]).forEach(p=>p.im&&ims.push(p.im));delete st.lib[id]});await dropImgs(ims);await saveNow();storInfo();ui();
+  $('#msg').textContent=`${g.length} Lied(er) aus der Bibliothek gelöscht.`})()};
 function frame(){if(ac)while(q.length&&q[0].t<=ac.currentTime){const e=q.shift();dots(e.b);beat(e.b)}
  requestAnimationFrame(frame)}
-(async()=>{await openDB();const s0=await dbGet('kv','state');
- if(s0&&s0.songs&&s0.songs.length){Object.assign(st,{songs:s0.songs,si:Math.min(s0.si||0,s0.songs.length-1),vol:s0.vol==null?st.vol:s0.vol,setId:s0.setId||null,sets:s0.sets||[],foot:!!s0.foot,inv:!!s0.inv,xp:s0.xp!==false});
-  uid=Math.max(uid,...st.songs.flatMap(x=>x.items.map(i=>i.u)));st.pos=I()[0].u;$('#vol').value=st.vol}
- dots(-1);chart();requestAnimationFrame(frame)})();
+(async()=>{await openDB();if(!db)err('Speicher nicht verfügbar – Änderungen gehen beim Schließen verloren (privater Modus?).');
+ const s0=await dbGet('kv','state');
+ const prefs=o=>{Object.assign(st,{vol:o.vol==null?st.vol:o.vol,setId:o.setId||null,sets:o.sets||[],foot:!!o.foot,inv:!!o.inv,xp:o.xp!==false,fo:o.fo||8})};
+ try{if(s0&&s0.lib){prefs(s0);st.lib=s0.lib;st.lists=s0.lists||[];st.cur=s0.cur||null;st.si=s0.si||0}
+  else if(s0&&s0.songs&&s0.songs.some(x=>x.pages)){prefs(s0); // Übernahme aus v15
+   const l={id:'L'+Date.now().toString(36),name:'Bisherige Lieder',t:Date.now(),songs:[]};
+   for(const x of s0.songs){if(!x.pages)continue;for(const pg of x.pages)if(pg.img&&!pg.im){const b=d2b(pg.img),im=newIm();if(await dbSet('imgs',im,b)){pg.im=im;pg.sz=b.size;delete pg.img}}
+    let id=songKey(x);while(st.lib[id])id+='_';x.id=id;st.lib[id]=x;l.songs.push(id)}
+   st.lists=[l];st.cur=l.id;st.si=s0.si||0;await saveNow()}}
+ catch(e){err('Gespeicherte Daten konnten nicht vollständig geladen werden ('+(e&&e.message||'Fehler')+').')}
+ uid=Math.max(uid,0,...Object.values(st.lib).flatMap(x=>(x.items||[]).map(i=>i.u)));
+ rebuild();$('#vol').value=st.vol;lastSaved=JSON.stringify(snapshot());
+ dots(-1);chart();loadImgs(st.songs[st.si+1]);requestAnimationFrame(frame)})();
 
 // ---- Gehostete Version: Offline, Bildschirm wach, Wiederaufnahme ----
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
