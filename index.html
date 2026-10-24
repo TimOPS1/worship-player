@@ -86,7 +86,7 @@ button.on{background:var(--ac);color:var(--bg);border-color:var(--ac);font-weigh
  <div style="margin-top:8px"><textarea id="notes" rows="2" placeholder="Notiz zu diesem Lied (erscheint über dem Chart) …"></textarea></div>
  <div class="row" style="margin-top:8px"><button id="bkx" class="sm">Sicherung exportieren</button><label class="btn sm">Sicherung laden<input id="bki" type="file" accept=".json,application/json" hidden></label><button id="clean" class="sm">Lieder ohne Setlist löschen</button><span class="mut" id="stor"></span></div>
  <div class="mut" style="margin-top:6px">Bluetooth-Pedal / Tastatur: → oder ↓ = nächstes Lied · ← oder ↑ = voriges Lied</div>
- <div class="mut" id="ver" style="margin-top:6px">Version v17</div>
+ <div class="mut" id="ver" style="margin-top:6px">Version v18</div>
  <div class="mut" id="msg" style="margin-top:6px">Ablauf: Abschnitt oben antippen, dann ändern.</div>
 </div>
 <div id="mkbar" class="panel row hide"><b>Section:</b><select id="msec"></select><span class="mut">Rechteck auf der Seite aufziehen</span><button id="mkd" class="on" style="margin-left:auto">Fertig</button></div>
@@ -244,7 +244,7 @@ $('#file').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)
    ln.forEach(l=>{l.p.sort((a,b)=>a.transform[4]-b.transform[4]);let r=null;l.p.forEach(i=>{const x=i.transform[4];
     if(r&&x-r.x1<9){r.t+=i.str;r.it.push({x,x1:x+i.width,s:i.str});r.x1=Math.max(r.x1,x+i.width);r.h=Math.max(r.h,i.height)}else{if(r)runs.push(r);r={t:i.str,x,y:l.y,x1:x+i.width,h:i.height,it:[{x,x1:x+i.width,s:i.str}]}}});if(r)runs.push(r)});
    const pts=runs.filter(r=>r.t.trim()).map(r=>{const q=vp.convertToViewportPoint(r.x,r.y);return{t:r.t.trim(),x:q[0]/vp.width,y:q[1]/vp.height,h:r.h*SC/vp.height}});
-   const tx=pts.map(p=>p.t).join(' '),hd=tx.match(/\bKey\s*-\s*([A-G][#b♯♭]?)(m|min)?\s*\|/),bm=tx.match(/\b(?:Tempo|BPM)\s*-?\s*:?\s*(\d{2,3})/i),cm=tx.match(/\bCapo\s*-\s*(\d+)/i),cc=tx.match(/CCLI Song\s*#\s*(\d+)/i);
+   const tx=pts.map(p=>p.t).join(' '),hd=tx.match(/\b(?:Key|Tonart)\s*[-:]\s*([A-G][#b♯♭]?)(m|min|moll)?\s*\|/),bm=tx.match(/\b(?:Tempo|BPM)\s*-?\s*:?\s*(\d{2,3})/i),cm=tx.match(/\bCapo\s*-\s*(\d+)/i),cc=tx.match(/CCLI Song\s*#\s*(\d+)/i);
    const top=pts.length?pts.reduce((a,p)=>p.h>a.h?p:a):{t:'Lied '+n};
    const ft=pts.find(p=>/^CCLI Song/.test(p.t))||{y:1,h:0},foot=ft.y-ft.h*2,col=p=>p.x<.48?0:1;
    const hs=pts.map(p=>({id:secId(p.t),col:col(p),y:p.y-p.h*1.15})).filter(h=>h.id).sort((a,b)=>a.col-b.col||a.y-b.y);
@@ -256,8 +256,8 @@ $('#file').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)
     rr.forEach(u=>{if(u!==r&&SUP.test(u.t.trim())&&u.y>r.y+1&&u.y<r.y+10&&u.x>=r.x-2&&u.x<=r.x1+4){u.it.forEach(q=>{let k=-1;parts.forEach((b,j)=>{if(b.s.trim()&&b.x1<=q.x+1.5)k=j});parts.splice(k+1,0,q)});x1=Math.max(x1,u.x1)}});
     const t=parts.map(q=>q.s).join('').replace(/\s+/g,' ').trim(),q=vp.convertToViewportPoint(r.x,r.y);
     return{t,x:q[0]/vp.width,y:q[1]/vp.height,w:(x1-r.x)*SC/vp.width,h:r.h*SC/vp.height}});
-   const metas=rr.filter(r=>/^Key\s*-?\s*[A-G]/.test(r.t.trim())).map(r=>{const t=r.t.trim(),q=vp.convertToViewportPoint(r.x,r.y);return{kind:/\|/.test(t)?'hdr':'key',t,x:q[0]/vp.width,y:q[1]/vp.height,w:(r.x1-r.x)*SC/vp.width,h:r.h*SC/vp.height}})
-    .filter(m=>m.kind==='hdr'||/^Key\s*-?\s*[A-G][#b♯♭]?(m|min)?$/.test(m.t));
+   const metas=rr.filter(r=>/^(?:Key|Tonart)\s*-?\s*[A-G]/.test(r.t.trim())).map(r=>{const t=r.t.trim(),q=vp.convertToViewportPoint(r.x,r.y);return{kind:/\|/.test(t)?'hdr':'key',t,x:q[0]/vp.width,y:q[1]/vp.height,w:(r.x1-r.x)*SC/vp.width,h:r.h*SC/vp.height}})
+    .filter(m=>m.kind==='hdr'||/^(?:Key|Tonart)\s*-?\s*[A-G][#b♯♭]?(m|min|moll)?$/.test(m.t));
    const crop=pts.length?{x0:cl(Math.min(...pts.map(p=>p.x))-.02),x1:cl(Math.max(...rr.map(r=>r.x1))*SC/vp.width+.02),y0:cl(Math.min(...pts.map(p=>p.y-p.h*1.2))-.015),y1:cl(Math.max(...pts.map(p=>p.y))+.015),yf:cl(Math.max(...bot)+.012)}:null;
    P.push({blob,iw:vp.width,ih:vp.height,crop,hd,bm,cc,cap:cm?+cm[1]:0,chords,metas,title:top.t,hs,bot,has:pts.length})}
   const r=await mergeImport(P,f.name);
@@ -299,9 +299,9 @@ function tChord(t,n,fl){const nn=x=>{const m=x.match(/^([A-G])([#b♯♭])?(.*)$
 function chordHTML(t){const i=t.indexOf('/'),a=i<0?t:t.slice(0,i),m=a.match(/^([A-G][#b]?(?:maj|min|dim|aug|sus|add|m)?)(.*)$/);return m?m[1]+(m[2]?`<sup>${m[2]}</sup>`:'')+(i<0?'':t.slice(i)):t}
 const wrap=(t,f)=>{const m=t.match(/^\((.*)\)$/);return m?'('+f(m[1])+')':f(t)};
 const tTxt=(t,n,fl)=>wrap(t,u=>tChord(u,n,fl)),tHTML=(t,n,fl)=>wrap(t,u=>chordHTML(tChord(u,n,fl)));
-function metaText(c,x){const kn=(flatKey(x.k,x.mn)?NF:NS)[x.k]+(x.mn?'m':''),cp=capoOf(x);if(c.kind==='key')return 'Key - '+kn;
- let t=c.t.replace(/Key\s*-?\s*[A-G][#b♯♭]?(?:m|min)?/,'Key - '+kn);const cs='Capo - '+cp+(cp>0?' ('+shapeName(x)+')':'');
- if(/Capo/.test(t))t=t.replace(/Capo\s*-?\s*\d+(\s*\([^)]*\))?/,cs);else if(cp>0)t=t.replace(/(Key - [A-G][#b]?m?)/,'$1 | '+cs);
+function metaText(c,x){const kn=(flatKey(x.k,x.mn)?NF:NS)[x.k]+(x.mn?'m':''),cp=capoOf(x);const lb=/^Tonart/.test(c.t)?'Tonart':'Key';if(c.kind==='key')return lb+' - '+kn;
+ let t=c.t.replace(/(?:Key|Tonart)\s*-?\s*[A-G][#b♯♭]?(?:m|min|moll)?/,lb+' - '+kn);const cs='Capo - '+cp+(cp>0?' ('+shapeName(x)+')':'');
+ if(/Capo/.test(t))t=t.replace(/Capo\s*-?\s*\d+(\s*\([^)]*\))?/,cs);else if(cp>0)t=t.replace(/((?:Key|Tonart) - [A-G][#b]?m?)/,'$1 | '+cs);
  return t.replace(/Tempo\s*-?\s*\d+/,'Tempo - '+x.b)}
 function overlay(){document.querySelectorAll('#chart .cd,#chart .cv').forEach(e=>e.remove());const x=S();if(!x.pages||!st.xp)return;const sh=shiftOf(x),fl=flatKey(shapeOf(x),x.mn);
  const kc=x.k0!=null&&x.k!==x.k0,mod=kc||capoOf(x)!==(x.c0||0)||(x.b0!=null&&x.b!==x.b0);
